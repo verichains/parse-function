@@ -1,5 +1,6 @@
 import json
 from eth_abi import decode_abi
+import re
 
 
 def read_file(file_path):
@@ -54,7 +55,7 @@ def decode_function(input_data, output_data):
         method_str = f'{method_name}({", ".join(print_arg(type_, value) for type_, value in zip(in_types, in_decoded))})'
 
     if output_data:
-        short_result = output_data.replace('0x0+', '0x')
-        method_str += f":{'0x0' if short_result == '0x' else short_result}"
+        short_result = re.sub(r'0x0+', '0x', output_data)
+        method_str += ':' + ('0x0' if short_result == '0x' else short_result)
 
     return method_str
