@@ -25,7 +25,6 @@ def decode_function(input_data, output_data):
     method_id_ = input_data[:10] if input_data else ''
     method = methods.get(method_id_, method_id_)
     method_str = f"{method}(0x{input_data[10:]})"
-    print(method_str)
 
     if method.endswith(')'):
         input_ = (input_data or '')[10:]
@@ -51,9 +50,7 @@ def decode_function(input_data, output_data):
                         iter_.append("")
                     iter_[-1] += letter
 
-        print(in_types)
         in_decoded = decode_abi(in_types, bytes.fromhex(input_))
-        print(in_decoded)
         method_str = f'{method_name}({", ".join(print_arg(type_, value) for type_, value in zip(in_types, in_decoded))})'
 
     if output_data:
