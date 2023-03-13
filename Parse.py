@@ -7,8 +7,19 @@ import re
 # Example: output: 0x0000000000000000000000000000000000000000000000000000000000000001
 # Return: transfer((address)(0xc663b28080e514662b469600bb3e69597fa11974), (uint256)(118855378)):0x1
 def main(input_data, output_data):
-    decoded_function = decode_function(input_data, output_data)
-    return decoded_function
+    try:
+        decoded_function = decode_function(input_data, output_data)
+    except:
+        data = {
+            "success": False,
+            "msg": "Something wrong with input data"
+        }
+    else:
+        data = {
+            'success': True,
+            "data": decoded_function
+        }
+    return data
 
 
 def read_file(file_path):
