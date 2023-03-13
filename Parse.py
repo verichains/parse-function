@@ -1,5 +1,6 @@
 import json
 from eth_abi import decode_abi
+import binascii
 import re
 
 
@@ -12,7 +13,7 @@ def print_arg(type_, value):
     if type_.startswith('int') or type_.startswith('uint'):
         return f'({type_})(0x{value})'
     if type_ == 'address':
-        return f'({type_})(0x{value})'
+        return f'({type_})({value})'
     if type_.startswith('bytes'):
         return f'({type_})(0x{value.hex()})'
     if type_.startswith('string'):
@@ -30,20 +31,24 @@ def decode_function(input_data, output_data):
     :return: decoded function
     """
 
-    # Load list encoded methods from files
+    # Load the list of encoded methods from the "4bytes.json" file
     methods = json.loads(read_file("4bytes.json"))
 
-    # Split the first 10 character for parsing method
-    method_id_ = input_data[:10] if input_data else ''
+    # Parse the first 10 characters of the input data to identify the method being called
     # method_id_ : 0xa9059cbb
+    method_id_ = input_data[:10] if input_data else ''
+
+    # Look up the method in the list of known methods, using the parsed method ID
     method = methods.get(method_id_, method_id_)
     # method : transfer(address,uint256)
+
+    # Construct a string representation of the method call, including the parsed arguments
     method_str = f"{method}(0x{input_data[10:]})"
     # method_str: transfer(address,uint256)(0x000000000000000000000000c663b28080e514662b469600bb3e69597fa1197400000000000000000000000000000000000000000000000000000000071596d2)
 
-    # Split to remain string in case the method has detected
+    # If the method ID is recognized, split the input data to handle remaining data
     if method.endswith(')'):
-        # get the remain string in input_data
+        # Extract the remaining string from the input data
         input_ = (input_data or '')[10:]
         # input_: 000000000000000000000000c663b28080e514662b469600bb3e69597fa1197400000000000000000000000000000000000000000000000000000000071596d2
         method_name = method.split('(')[0]
@@ -61,10 +66,10 @@ def decode_function(input_data, output_data):
                     iter_.append([])
                     backs.append(iter_)
                     iter_ = iter_[-1]
-                elif letter == ')':
-                    iter_ = backs.pop()
                 elif letter == ',':
                     iter_.append("")
+                elif letter == ')':
+                    continue
                 else:
                     if not iter_ or not isinstance(iter_[-1], str):
                         iter_.append("")
