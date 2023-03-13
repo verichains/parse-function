@@ -53,6 +53,7 @@ def decode_function(input_data, output_data):
     method_str = f"{method}(0x{input_data[10:]})"
     # method_str: transfer(address,uint256)(0x000000000000000000000000c663b28080e514662b469600bb3e69597fa1197400000000000000000000000000000000000000000000000000000000071596d2)
 
+    print(method_str)
     # If the method ID is recognized, split the input data to handle remaining data
     if method.endswith(')'):
         # Extract the remaining string from the input data
@@ -84,13 +85,13 @@ def decode_function(input_data, output_data):
         # in_types: ['address', 'uint256']
 
         # decode to get value for each param
-        in_decoded = decode_abi(in_types, bytes.fromhex(input_))
-        # in_decoded: ('0xc663b28080e514662b469600bb3e69597fa11974', 118855378)
-
-        # Construct a string representation of the method call with the given arguments,
-        # by iterating over each parameter and its corresponding value and combining them
-        # into a comma-separated list enclosed in parentheses.
-        method_str = f'{method_name}({", ".join(print_arg(type_, value) for type_, value in zip(in_types, in_decoded))})'
+        if input_:
+            in_decoded = decode_abi(in_types, bytes.fromhex(input_))
+            # in_decoded: ('0xc663b28080e514662b469600bb3e69597fa11974', 118855378)
+            # Construct a string representation of the method call with the given arguments,
+            # by iterating over each parameter and its corresponding value and combining them
+            # into a comma-separated list enclosed in parentheses.
+            method_str = f'{method_name}({", ".join(print_arg(type_, value) for type_, value in zip(in_types, in_decoded))})'
         # method_str: transfer((address)(0xc663b28080e514662b469600bb3e69597fa11974), (uint256)(0x118855378))
 
     # combine output_data
