@@ -1,5 +1,5 @@
 import json
-from eth_abi import decode_abi, decode, decode_single
+from eth_abi import decode_single
 import re
 
 
@@ -44,26 +44,38 @@ def main():
     print("result: ", decoded_function.get("data"))
     print("\n")
 
+    input = "0x0eaead67000000000000000000000000000000000000000000000000000000000000006000000000000000000000000078e883ab727770cce222b0799f77a157caeaabf50000000000000000000000000000000000000000000000000000000000000001b59fce73e3b56330b84b91eb24130e723c04a2fa0000000000000185e7f7d60800000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001e0000000000000000000000000000000000000000000000000000000000000002e516d50766874666635515a6f464337457a525842614577414e35324a446a614e71427350536e3342316d6e6969500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000b59fce73e3b56330b84b91eb24130e723c04a2fa00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000001000000000000000000000000b59fce73e3b56330b84b91eb24130e723c04a2fa00000000000000000000000000000000000000000000000000000000000003e800000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000004186c83c1e5597bfbaca589bcc535b087c10bb68722bbe5e500e0f9a14d2f4536a37995e07d9acd1efbbaebf1d8676afd8dedbf91b318d3c69658746c74d4c80881b00000000000000000000000000000000000000000000000000000000000000"
+    output = "0x0"
+    print("input: ", input)
+    print("output: ", output)
+    decoded_function = decode_function(input, output)
+    print("result: ", decoded_function.get("data"))
+    print("\n")
+
+
 def read_file(file_path):
     with open(file_path, 'r') as f:
         return f.read()
 
 
-def print_arg(type_, value):
-    if type(type_) == list:
-        return f'({",".join(print_arg(type1_, value1) for type1_, value1 in zip(type_, value))})'
-    if type_.startswith('int') or type_.startswith('uint'):
-        return f'({type_})({value})'
-    if type_ == 'address':
-        return f'({type_})({value})'
-    if type_.startswith('bytes'):
-        return f'({type_})(0x{value.hex()})'
-    if type_.startswith('string'):
-        return f'({type_})("{value}")'
-    return f'({type_})({value})'
+def parse_arg(val_, type_, params_):
+    if isinstance(val_, tuple):
+        params_data = []
+        typeChild = [type(elem) for elem in val_]
+        for typeChildEl, valChild_ in zip(typeChild, val_):
+            parse_arg(valChild_, typeChildEl, params_data)
+        # print('tuple',params_data)
+        params_.append(params_data)
+    if type(val_) == bytes:
+        # print(val_)
+        params_.append(val_.hex())
+
+    if type(val_) == str or type(val_) == int:
+        params_.append(val_)
 
 
-# Example: input_data: 0xa9059cbb000000000000000000000000c663b28080e514662b469600bb3e69597fa1197400000000000000000000000000000000000000000000000000000000071596d2
+# Example: input_data: 0xa9059cbb000000000000000000000000c663b28080e514662b469600bb3e69597fa1197400000000000000000000000
+# 000000000000000000000000000000000071596d2
 # Example: output_data: 0x0000000000000000000000000000000000000000000000000000000000000001
 def decode_function(input_data, output_data):
     """
@@ -73,6 +85,7 @@ def decode_function(input_data, output_data):
     :return: decoded function
     """
 
+    global params, short_result
     try:
         # Load the list of encoded methods from the "4bytes.json" file
         methods = json.loads(read_file("4bytes.json"))
@@ -84,10 +97,6 @@ def decode_function(input_data, output_data):
         # Look up the method in the list of known methods, using the parsed method ID
         method = methods.get(method_id_, method_id_)
         # method : transfer(address,uint256)
-
-        # Construct a string representation of the method call, including the parsed arguments
-        method_str = f"{method}(0x{input_data[10:]})"
-        # method_str: transfer(address,uint256)(0x000000000000000000000000c663b28080e514662b469600bb3e69597fa1197400000000000000000000000000000000000000000000000000000000071596d2)
 
         # If the method ID is recognized, split the input data to handle remaining data
         if method.endswith(')'):
@@ -121,30 +130,25 @@ def decode_function(input_data, output_data):
                             iter_.append("")
                         iter_[-1] += letter
             # in_types: ['address', 'uint256']
-            parse_types = str(in_types)
-            parse_types = parse_types.replace("[", "(").replace("]", ")").replace("'", "").replace(" ", "").replace(
-                "()", "[]")
 
-            # parse_in_types = "(((bytes4,bytes),uint256),address,address)"
+            # generate parse type for decode input params
+            parse_types = str(in_types).replace("[", "(").replace("]", ")").replace("'", "").replace(" ", "").replace(
+                "()", "[]").replace(",[]", "[]").replace(",,", ",")
 
             # decode to get value for each param
             if input_:
                 in_decoded = decode_single(parse_types, bytes.fromhex(input_))
-                # in_decoded: ('0xc663b28080e514662b469600bb3e69597fa11974', 118855378)
-                # Construct a string representation of the method call with the given arguments,
-                # by iterating over each parameter and its corresponding value and combining them
-                # into a comma-separated list enclosed in parentheses.
-                method_str = f'{method_name}({", ".join(print_arg(type_, value) for type_, value in zip(in_types, in_decoded))})'
-            # method_str: transfer((address)(0xc663b28080e514662b469600bb3e69597fa11974), (uint256)(0x118855378))
+                params = []
+                types = [type(elem) for elem in in_decoded]
+                for val_, type_ in zip(in_decoded, types):
+                    parse_arg(val_, type_, params)
+                # params: ['0xc663b28080e514662b469600bb3e69597fa11974', 118855378]
 
         # combine output_data
         if output_data:
             short_result = re.sub(r'0x0+', '0x', output_data)
-            method_str += ':' + ('0x0' if short_result == '0x' else short_result)
 
-    # method_str: transfer((address)(0xc663b28080e514662b469600bb3e69597fa11974), (uint256)(118855378)):0x1
-    except Exception as ex:
-        print(ex)
+    except:
         data = {
             "success": False,
             "msg": "Something wrong with input data"
@@ -152,9 +156,27 @@ def decode_function(input_data, output_data):
     else:
         data = {
             'success': True,
-            "data": method_str
+            "data": {
+                "function": method,
+                "params": params,
+                "output": short_result
+            }
         }
 
+    # data:
+    # 	{
+    # 	    "success": true,
+    # 	    "data":
+    # 	    {
+    # 	        "function": "transfer(address,uint256)",
+    # 	        "params":
+    # 	        [
+    # 	            "0xc663b28080e514662b469600bb3e69597fa11974",
+    # 	            118855378
+    # 	        ],
+    # 	        "output": "0x1"
+    # 	    }
+    # 	}
     return data
 
 
